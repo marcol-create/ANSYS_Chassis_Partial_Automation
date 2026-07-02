@@ -122,6 +122,10 @@ The script automatically:
 
 <img width="2560" height="1528" alt="image" src="https://github.com/user-attachments/assets/cfa23791-5ce3-4ab2-8485-27b22d2ccaec" />
 
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/efa12b9e-672d-4de3-8c31-1b5c85f4bba8" />
+
+
+
 
 ---
 
