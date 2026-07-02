@@ -19,7 +19,7 @@ Required geometry:
 Run:
 
 ```text
-just_acp.py
+workbench_setup(just_acp).py
 ```
 
 When prompted, select the **chassis panels STEP file**.
