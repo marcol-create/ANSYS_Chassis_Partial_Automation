@@ -46,7 +46,7 @@ The script automatically:
 
 - ✅ Creates an **ACP (Pre)** system
 - ✅ Creates two **Mechanical** systems (Front Bumper and Side Bumper)
-- ✅ Links all systems appropriately
+- ✅ Orders all systems appropriately
 - ✅ Imports the **Carbon Fiber** and **Aluminum Honeycomb** material data
 - ✅ Imports each selected geometry into its corresponding system
 
