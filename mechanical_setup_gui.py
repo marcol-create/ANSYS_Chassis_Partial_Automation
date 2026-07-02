@@ -45,14 +45,21 @@ print("Set thickness on %d bodies." % n_thick)
 n_ns = 0
 with Transaction():
     for body in bodies:
+        # Collect the IDs of EVERY face belonging to this body, so all faces
+        # of one geometry go into a single named selection.
+        face_ids = [face.Id for face in body.GetGeoBody().Faces]
+        if not face_ids:
+            print("  Skipped (no faces): %s" % body.Name)
+            continue
+
         sel = ExtAPI.SelectionManager.CreateSelectionInfo(
             SelectionTypeEnum.GeometryEntities)
-        sel.Ids = [body.GetGeoBody().Id]   # geometry id of this body
+        sel.Ids = face_ids                 # all faces of this body at once
 
         ns = model.AddNamedSelection()
         ns.Location = sel
         ns.Name = body.Name
         n_ns += 1
-        print("  Named selection: %s" % body.Name)
+        print("  Named selection: %s (%d faces)" % (body.Name, len(face_ids)))
 
 print("Created %d named selections. Done." % n_ns)
