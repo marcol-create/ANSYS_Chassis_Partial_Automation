@@ -14,8 +14,17 @@ Python scripts that partly automates the setup of composite and bumper analyses 
 | `acp_solid_models.py` | Generates ACP solid models for every element set using **Analysis Ply Wise** extrusion. |
 
 ---
+# Setup Summary
+-In Workbench, run "workbench_setup(just_acp).py" or "workbench_setup(bumpers_included).py" depending on if you want bumpers or just the ACP setup. This will prompt you to select the files you want to use. 
+-After this, go into model and specify your mesh. 
+-You should now be done with the ANSYS Mechanical side of the setup with the correct material, named selections, and mesh. 
 
-# Setup
+-In setup, run the "acp_full_setup.py" script within ACP. This will create the fabric and stackup, as well as the rossetes (centered on face), oriented selection sets, and modeling groups. Everything should be linked correctly by name. The manual step is to specify the rossete and OSS directions, with correct draping, flipping, etc. 
+
+-Then, run the "acp_solid_models.py" script. This will create the solid models linked to the correct element sets. Rossete and OSS directions must be specified before this step. 
+-Updating should give the final ACP setup, and you can return to Workbench. 
+
+# Detailed Setup
 
 ## Option A — ACP Only
 
