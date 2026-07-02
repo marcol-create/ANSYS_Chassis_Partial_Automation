@@ -16,6 +16,18 @@
 # ---------------------------------------------------------------------
 THICKNESS = Quantity("1 [mm]")   # change value/unit here if needed
 
+# Body names come in prefixed with the ACP block name, e.g.
+# "Chassis, Panels Only| Top". Keep only the part AFTER this delimiter,
+# so the named selection is just "Top". Set to None to keep the full name.
+NAME_DELIMITER = "|"
+
+
+def clean_name(raw):
+    """Strip the leading block/system prefix from an imported body name."""
+    if NAME_DELIMITER and NAME_DELIMITER in raw:
+        return raw.rsplit(NAME_DELIMITER, 1)[-1].strip()
+    return raw.strip()
+
 # ---------------------------------------------------------------------
 # SETUP
 # ---------------------------------------------------------------------
@@ -58,8 +70,8 @@ with Transaction():
 
         ns = model.AddNamedSelection()
         ns.Location = sel
-        ns.Name = body.Name
+        ns.Name = clean_name(body.Name)    # drop the "Block Name| " prefix
         n_ns += 1
-        print("  Named selection: %s (%d faces)" % (body.Name, len(face_ids)))
+        print("  Named selection: %s (%d faces)" % (ns.Name, len(face_ids)))
 
 print("Created %d named selections. Done." % n_ns)
