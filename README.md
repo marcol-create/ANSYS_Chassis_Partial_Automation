@@ -116,11 +116,7 @@ The script automatically:
 
 ## Chassis Mesh
 
-Before proceeding to the ACP scripts, open the **ACP Mechanical** model and generate the chassis mesh manually.
-
-The Workbench setup script prepares the geometry and creates the required **Named Selections**, but the chassis mesh is intentionally **not** generated automatically. This allows you to apply the element sizing and selective mesh refinement appropriate for your analysis.
-
-Generate the mesh using your preferred mesh coarseness before continuing to the ACP setup scripts.
+Before proceeding to the ACP scripts, open the **ACP Mechanical** model and generate the chassis mesh manually with preferred mesh coarseness before continuing to the ACP setup scripts.
 
 ---
 
