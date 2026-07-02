@@ -21,12 +21,12 @@ sysA = tmpl_acp.CreateSystem()
 sysA.DisplayText = "Panels"
 
 # --- Block B : Static Structural, right of A -----------------------
-tmpl_struct = GetTemplate(TemplateName="Static Structural")
+tmpl_struct = GetTemplate(TemplateName="Static Structural", Solver="ANSYS")
 sysB = tmpl_struct.CreateSystem(Position="Right", RelativeTo=sysA)
 sysB.DisplayText = "Side Impact"
 
 # --- Block C : Structural Optimization, below B --------------------
-tmpl_opt = GetTemplate(TemplateName="Structural Optimization")
+tmpl_opt = GetTemplate(TemplateName="Structural Optimization", Solver="ANSYS")
 sysC = tmpl_opt.CreateSystem(Position="Below", RelativeTo=sysB)
 sysC.DisplayText = "Front Impact"
 
