@@ -14,15 +14,19 @@ Python scripts that partly automates the setup of composite and bumper analyses 
 | `acp_solid_models.py` | Generates ACP solid models for every element set using **Analysis Ply Wise** extrusion. |
 
 ---
-# Much Shorter Setup Summary 
--In Workbench, run "workbench_setup(just_acp).py" or "workbench_setup(bumpers_included).py" depending on if you want bumpers or just the ACP setup. This will prompt you to select the files you want to use. 
--After this, go into model and specify your mesh. 
--You should now be done with the ANSYS Mechanical side of the setup with the correct material, named selections, and mesh. 
+# Much Shorter Setup Summary
 
--In setup, run the "acp_full_setup.py" script within ACP. This will create the fabric and stackup, as well as the rossetes (centered on face), oriented selection sets, and modeling groups. Everything should be linked correctly by name. The manual step is to specify the rossete and OSS directions, with correct draping, flipping, etc. 
+- In **ANSYS Workbench**, run either `workbench_setup(just_acp).py` or `workbench_setup(bumpers_included).py`, depending on whether you want only the ACP setup or the full ACP + bumper setup. The script will prompt you to select the required geometry files.
 
--Then, run the "acp_solid_models.py" script. This will create the solid models linked to the correct element sets. Rossete and OSS directions must be specified before this step. 
--Updating should give the final ACP setup, and you can return to Workbench. 
+- Open the **ACP Mechanical** model and generate the chassis mesh. Apply the element sizing and selective mesh refinement appropriate for your analysis.
+
+- At this point, the ANSYS Mechanical setup is complete, including the imported materials, named selections, and mesh.
+
+- In **ACP**, run `acp_full_setup.py`. This script creates the fabrics, stackup, rosettes (centered on each element set), oriented selection sets (OSSs), and modeling groups. All objects are automatically linked by name. The remaining manual work is to define the rosette directions, OSS orientations, draping directions, ply flipping, and any face-specific orientation settings.
+
+- After all rosette and OSS orientations have been finalized, run `acp_solid_models.py`. This creates the solid models and links them to the correct extrusion element sets using **Analysis Ply Wise** extrusion.
+
+- Update the ACP model, then return to Workbench to continue with your analysis.
 
 # Detailed Setup Summary
 
