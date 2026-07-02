@@ -18,6 +18,8 @@ Create three separate STEP files:
 
 ### 2. Run the Automation Script
 
+First, downlowd all .py files from this repo. 
+
 In **ANSYS Workbench**, navigate to:
 
 ```text
