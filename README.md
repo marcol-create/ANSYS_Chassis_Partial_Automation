@@ -84,9 +84,3 @@ Finally, the script saves the completed Workbench project.
 
 ---
 
-## Which Script Should I Use?
-
-| If you want to... | Run |
-|-------------------|-----|
-| Set up only the composite chassis model in ACP | `workbench_setup(just_acp).py` |
-| Set up the complete chassis + bumper workflow (including Static Structural and Structural Optimization analyses) | `workbench_setup(bumpers_include).py` |
