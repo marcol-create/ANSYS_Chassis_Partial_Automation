@@ -101,6 +101,9 @@ The script automatically:
 - ✅ Imports the chassis geometry
 - ✅ Opens ACP Mechanical, assigns **1 mm thickness**, and creates a **Named Selection** per body
 
+- <img width="2560" height="1528" alt="image" src="https://github.com/user-attachments/assets/ecf6b3ed-9fdf-450a-bd1f-79e01b3e82bb" />
+
+
 **Bumper setup**
 - ✅ Creates **Front Bumper** and **Side Bumper** Mechanical Model systems
 - ✅ Imports both bumper geometries
@@ -109,11 +112,17 @@ The script automatically:
 - ✅ Creates the **Static Structural** and **Structural Optimization** systems
 - ✅ Saves the completed Workbench project
 
+- <img width="2560" height="1528" alt="image" src="https://github.com/user-attachments/assets/e8c1fed6-32fb-4de7-b3f2-82b00256fe39" />
+
+
 ---
 
 ## Chassis Mesh
 
 Before the ACP scripts, open the **ACP Mechanical** model and generate the chassis mesh manually, with the element sizing and selective refinement appropriate for your analysis.
+
+<img width="2560" height="1540" alt="image" src="https://github.com/user-attachments/assets/cd505e9f-45f0-4a9a-a5b1-fe7f8f1bc9b8" />
+
 
 After the Workbench setup and meshing, the ACP model contains:
 
@@ -156,6 +165,7 @@ Carbon Fiber (0°)
 Carbon Fiber (90°)
 ```
 
+
 - ✅ Creates a centroid-based **Rosette** for every element set (named to match the set)
 
 ---
@@ -168,6 +178,10 @@ Because each OSS takes its orientation from its rosette, set the rosettes **befo
 - Confirm the direction is correct per surface (it is **not** always radially outward — it varies by panel)
 
 ---
+
+
+<img width="610" height="979" alt="image" src="https://github.com/user-attachments/assets/13564262-c9be-40b3-acc7-a719828bf01a" />
+
 
 ## Step 4 — OSS, Modeling Groups/Plies, and Solid Models
 
@@ -198,6 +212,12 @@ The script automatically:
 | `ORIENT_MODE = "rosette"` | Orientation follows each rosette (default). Other modes: `"radial_out"`, `"radial_in"`, `"mesh"`, `"fixed"`. |
 | `ORIENT_FLIP = True` | Negates the direction so the solid extrudes inward (opposite the rosette/offset). Set `False` if it extrudes the wrong way. |
 | `EX_TYPE = "analysis_ply_wise"` | Solid-model extrusion method. `MONOLITHIC_SETS` can override specific sets to `monolithic`. |
+
+<img width="607" height="1075" alt="image" src="https://github.com/user-attachments/assets/fccf9a34-4582-4a3e-9a8b-fa1b4c5328a8" />
+
+<img width="520" height="736" alt="image" src="https://github.com/user-attachments/assets/4b692e55-4761-425c-a9fe-2e7063166209" />
+
+
 
 Update the ACP model, then return to Workbench to continue with your analysis.
 
