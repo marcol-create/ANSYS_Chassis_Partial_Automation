@@ -16,10 +16,11 @@ Python scripts that automates repetitive parts of setup for composite and bumper
 ---
 
 ## Quick Workflow
+Prior to Ansys work, pre-prep file in Fusion, surface offsetting faces by 0.00 mm. 
 
 1. **Run a Workbench setup script (New Workbench file)**
    - Run either `workbench_setup(just_acp).py` or `workbench_setup(bumpers_included).py` through **Workbench → File → Scripting**.
-   - The script creates the Workbench project, lets you imports the geometry and material data, generates the required Named Selections, and (if using the bumper workflow) automatically meshes the bumper models and creates the Static Structural and Structural Optimization analyses.
+   - The script creates the Workbench project, takes the material data from your computer, lets you select the geometry file/s for testing, generates the required Named Selections, and (if using the bumper workflow) automatically meshes the bumper models and creates the Static Structural and Structural Optimization analyses.
 
 2. **Generate the chassis mesh (Mechanical)**
    - Open the ACP Mechanical model and create the chassis mesh using the coarseness appropriate for your analysis.
