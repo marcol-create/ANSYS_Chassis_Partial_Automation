@@ -19,6 +19,19 @@ PLY_ANGLE = 0.0
 EX_TYPE = "analysis_ply_wise"          # solid model extrusion method
 MONOLITHIC_SETS = set()                # e.g. {"Back Roof"} to use monolithic instead
 
+# How each OSS orientation direction is chosen:
+#   "rosette"    -> use the rosette's own normal (per-surface, as you set it)
+#   "radial_out" -> point outward from the chassis center
+#   "radial_in"  -> point inward toward the chassis center
+#   "mesh"       -> use the face's average element normal
+#   "fixed"      -> use DEFAULT_ORIENT_DIR for all
+ORIENT_MODE = "rosette"
+# Negate the chosen direction. Your rosette points along the offset and the
+# extrusion is inward (opposite), so flip is on. Turn off if it extrudes wrong.
+ORIENT_FLIP = True
+# Chassis reference point for the radial modes. None = whole-mesh centroid.
+ORIENT_CENTER = None
+
 # ---------------- MODEL ----------------
 try:
     db
@@ -130,32 +143,58 @@ if full is None:
                    % (STACKUP_NAME, ", ".join("'%s'" % s for s in md.stackups.keys())))
 
 
-# =====================================================================
-# 4. ORIENTED SELECTION SETS
-# =====================================================================
-# ---- one-time: show the first rosette's attributes (helps if source=mesh) ----
-_rk = list(model.rosettes.keys())
-for _n in _rk:
+# ---------------- chassis center (for radial orientation) ----------------
+if ORIENT_CENTER is not None:
+    GLOBAL_CENTER = tuple(ORIENT_CENTER)
+else:
+    try:
+        GLOBAL_CENTER = _avg(model.mesh_query(name="coordinates",
+                                              position="centroid", selection="all"))
+    except Exception:
+        GLOBAL_CENTER = None
+if GLOBAL_CENTER is None:
+    GLOBAL_CENTER = (0.0, 0.0, 0.0)
+print("Chassis center: (%.2f, %.2f, %.2f)" % GLOBAL_CENTER)
+
+
+def orient_direction(es, ros, center):
+    """Pick the OSS orientation direction per ORIENT_MODE -> (vec, source)."""
+    if ORIENT_MODE in ("radial_out", "radial_in"):
+        rv = _unit((center[0] - GLOBAL_CENTER[0],
+                    center[1] - GLOBAL_CENTER[1],
+                    center[2] - GLOBAL_CENTER[2]))
+        if rv:
+            if ORIENT_MODE == "radial_in":
+                rv = (-rv[0], -rv[1], -rv[2])
+            return rv, ORIENT_MODE
+    elif ORIENT_MODE == "rosette":
+        v = rosette_normal(ros)
+        if v:
+            return v, "rosette"
+    elif ORIENT_MODE == "mesh":
+        v = set_normal(es)
+        if v:
+            return v, "mesh"
+    return DEFAULT_ORIENT_DIR, "fixed"
+
+
+# ---- one-time: show the first rosette's attributes (to verify [rosette] reads) ----
+for _n in model.rosettes.keys():
     if _n not in SKIP_SETS and _n.lower() != "global coordinate system":
         print("Rosette '%s' attrs: %s"
               % (_n, ", ".join(a for a in dir(model.rosettes[_n]) if not a.startswith("_"))))
         break
 
+# =====================================================================
+# 4. ORIENTED SELECTION SETS
+# =====================================================================
 for name in target_sets():
     es  = model.element_sets[name]
     ros = get_item(model.rosettes, name)
     origin = set_center(es) or (0.0, 0.0, 0.0)
-
-    # OSS orientation should follow the rosette the user set; fall back to the
-    # face's mesh normal, then to the fixed default.
-    orient_dir = rosette_normal(ros)
-    src = "rosette"
-    if orient_dir is None:
-        orient_dir = set_normal(es)
-        src = "mesh"
-    if orient_dir is None:
-        orient_dir = DEFAULT_ORIENT_DIR
-        src = "default"
+    orient_dir, src = orient_direction(es, ros, origin)
+    if ORIENT_FLIP:
+        orient_dir = (-orient_dir[0], -orient_dir[1], -orient_dir[2])
 
     kwargs = dict(name=name, orientation_point=origin,
                   orientation_direction=orient_dir, element_sets=[es])
