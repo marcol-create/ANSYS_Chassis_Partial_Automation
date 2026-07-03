@@ -107,6 +107,8 @@ The script creates:
 - ✅ Creates a Named Selection for every body
 
 <img width="2560" height="1528" alt="image" src="https://github.com/user-attachments/assets/ecf6b3ed-9fdf-450a-bd1f-79e01b3e82bb" />
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/b690991e-21c5-437b-bdd1-010254c5b993" />
+
 
 ### Bumpers
 
