@@ -1,213 +1,232 @@
 # =====================================================================
-#  ACP (Pre) -- SCRIPT 2 of 2 : OSS + modeling groups/plies + solid models
+#  WORKBENCH: FULL SETUP IN ONE SCRIPT
 # =====================================================================
-#  Run INSIDE ACP (File > Run Script) AFTER script 1 and AFTER you have
-#  finalized the rosettes (each OSS locks in its rosette at creation).
+#  Run from the Workbench Project window (start from an EMPTY project):
+#     File > Scripting > Run Script File...  -> pick THIS file
 #
-#  4. OSS      : one per element set, scoped to the set, reference
-#                direction = same-named rosette
-#  5. Modeling : one modeling group per set, each with one ply
-#                (OSS = same-named set, ply material = "Full Panel")
-#  6. Solids   : one solid model per set, that set in extrusion element sets
+#  Does everything in one run:
+#    1. Builds the 5 blocks (ACP Pre + 2 analysis + 2 Mechanical Model)
+#    2. Imports material files (*Al_HC*, *CF_Limits*) into block A
+#    3. Prompts you for a STEP file for the chassis + each bumper
+#    4. Runs Mechanical setup:
+#         chassis -> 1 mm thickness + Named Selection per body
+#         bumpers -> 1 mm thickness + 3 mm mesh + generate
+#    5. Saves (if the project has been saved once already)
 # =====================================================================
 
-# ---------------- CONFIG ----------------
-STACKUP_NAME = "Full Panel"
-SKIP_SETS = ["All_Elements"]
-DEFAULT_ORIENT_DIR = (0.0, 0.0, 1.0)   # OSS lay-up direction (adjust later)
-PLY_ANGLE = 0.0
-EX_TYPE = "analysis_ply_wise"          # solid model extrusion method
-MONOLITHIC_SETS = set()                # e.g. {"Back Roof"} to use monolithic instead
+import os
 
-# ---------------- MODEL ----------------
+# ---------------------------------------------------------------------
+# CONFIG
+# ---------------------------------------------------------------------
+SEARCH_ROOTS = [os.path.expanduser("~")]        # where to look for materials
+MATERIAL_NAME_KEYS = ["Al_HC", "CF_Limits"]
+MATERIAL_EXTS = (".xml", ".engd", ".eng")
+SKIP_DIRS = set(["appdata", "$recycle.bin", "windows", "program files",
+                 "program files (x86)", "programdata", "node_modules", ".git",
+                 "application data", "local settings", "my documents",
+                 "cookies", "nethood", "printhood", "recent"])
+
+# How to open Mechanical: "" (visible, most reliable) / "Interactive" / "Hidden"
+EDIT_MODE = "Interactive"
+
+# Fallback STEP paths if a file dialog is cancelled/unavailable ("" = skip)
+FALLBACK_PATHS = {"Chassis panels": "", "Side bumper": "", "Front bumper": ""}
+
+
+# ---------------------------------------------------------------------
+# Mechanical-side scripts (run INSIDE Mechanical via SendCommand)
+# ---------------------------------------------------------------------
+CHASSIS_CMD = '''
+THICKNESS = Quantity("1 [mm]")
+NAME_DELIMITER = "|"
+
+def clean_name(raw):
+    if NAME_DELIMITER and NAME_DELIMITER in raw:
+        return raw.rsplit(NAME_DELIMITER, 1)[-1].strip()
+    return raw.strip()
+
+model  = ExtAPI.DataModel.Project.Model
+bodies = model.GetChildren(DataModelObjectCategory.Body, True)
+with Transaction():
+    for body in bodies:
+        try:
+            body.Thickness = THICKNESS
+        except Exception:
+            pass
+with Transaction():
+    for body in bodies:
+        face_ids = [face.Id for face in body.GetGeoBody().Faces]
+        if not face_ids:
+            continue
+        sel = ExtAPI.SelectionManager.CreateSelectionInfo(SelectionTypeEnum.GeometryEntities)
+        sel.Ids = face_ids
+        ns = model.AddNamedSelection()
+        ns.Location = sel
+        ns.Name = clean_name(body.Name)
+'''
+
+BUMPER_CMD = '''
+THICKNESS    = Quantity("1 [mm]")
+ELEMENT_SIZE = Quantity("3 [mm]")
+model  = ExtAPI.DataModel.Project.Model
+bodies = model.GetChildren(DataModelObjectCategory.Body, True)
+with Transaction():
+    for body in bodies:
+        try:
+            body.Thickness = THICKNESS
+        except Exception:
+            pass
+mesh = model.Mesh
+mesh.ElementSize = ELEMENT_SIZE
+mesh.UseAdaptiveSizing = False
+mesh.GenerateMesh()
+'''
+
+CMD_BY_KIND = {"chassis": CHASSIS_CMD, "bumper": BUMPER_CMD}
+
+
+# ---------------------------------------------------------------------
+# HELPERS
+# ---------------------------------------------------------------------
+def get_template(name, solver=None):
+    try:
+        if solver:
+            return GetTemplate(TemplateName=name, Solver=solver)
+        return GetTemplate(TemplateName=name)
+    except Exception:
+        if solver:
+            return GetTemplate(TemplateName="%s (%s)" % (name, solver))
+        raise
+
+
+def find_material_files(roots, key):
+    hits, seen, key_low = [], set(), key.lower()
+    for root in roots:
+        if not os.path.isdir(root):
+            continue
+        for dirpath, dirnames, filenames in os.walk(root, onerror=lambda e: None):
+            dirnames[:] = [d for d in dirnames if d.lower() not in SKIP_DIRS]
+            for fname in filenames:
+                low = fname.lower()
+                if key_low in low and low.endswith(MATERIAL_EXTS):
+                    full = os.path.join(dirpath, fname).replace("\\", "/")
+                    if full not in seen:
+                        seen.add(full); hits.append(full)
+    try:
+        hits.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    except Exception:
+        pass
+    return hits
+
+
+def pick_step_file(label):
+    try:
+        import clr
+        clr.AddReference("System.Windows.Forms")
+        from System.Windows.Forms import OpenFileDialog, DialogResult
+        from System.Threading import Thread, ThreadStart, ApartmentState
+        holder = {"path": None}
+        def _show():
+            dlg = OpenFileDialog()
+            dlg.Title = "Select STEP file for: %s" % label
+            dlg.Filter = "STEP files (*.step;*.stp)|*.step;*.stp|All files (*.*)|*.*"
+            dlg.RestoreDirectory = True
+            if dlg.ShowDialog() == DialogResult.OK:
+                holder["path"] = dlg.FileName
+        t = Thread(ThreadStart(_show))
+        t.SetApartmentState(ApartmentState.STA)
+        t.Start(); t.Join()
+        return holder["path"]
+    except Exception, ex:
+        print("  (file dialog unavailable: %s)" % ex)
+        return None
+
+
+def choose_geometry(label):
+    path = pick_step_file(label)
+    if not path:
+        path = FALLBACK_PATHS.get(label, "")
+    return path if path else None
+
+
+def open_model(model):
+    if EDIT_MODE == "Interactive":
+        model.Edit(Interactive=False)
+    elif EDIT_MODE == "Hidden":
+        model.Edit(Hidden=True)
+    else:
+        model.Edit()
+
+
+# =====================================================================
+# 1. BUILD THE SCHEMATIC
+# =====================================================================
+sysA = get_template("ACP (Pre)").CreateSystem()
+sysA.DisplayText = "Panels"
+print("A created: Panels")
+
+# materials into block A
+eng = sysA.GetContainer(ComponentName="Engineering Data")
+for key in MATERIAL_NAME_KEYS:
+    files = find_material_files(SEARCH_ROOTS, key)
+    if files:
+        try:
+            eng.Import(Source=files[0]); print("Imported '%s': %s" % (key, files[0]))
+        except Exception, ex:
+            print("Material import failed for '%s': %s" % (key, ex))
+    else:
+        print("WARNING: no material file matching '%s'" % key)
+
+sysB = get_template("Static Structural", "ANSYS").CreateSystem(Position="Right", RelativeTo=sysA)
+sysB.DisplayText = "Side Impact"
+print("B created: Side Impact")
+
+sysC = get_template("Structural Optimization", "ANSYS").CreateSystem(Position="Below", RelativeTo=sysB)
+sysC.DisplayText = "Front Impact"
+print("C created: Front Impact")
+
+tmpl_mm = get_template("Mechanical Model")
+sysD = tmpl_mm.CreateSystem(Position="Below", RelativeTo=sysA)
+sysD.DisplayText = "Side bumper"
+print("D created: Side bumper")
+
+sysE = tmpl_mm.CreateSystem(Position="Below", RelativeTo=sysD)
+sysE.DisplayText = "Front Bumper"
+print("E created: Front Bumper")
+
+
+# =====================================================================
+# 2. GEOMETRY (via picker) + MECHANICAL SETUP
+# =====================================================================
+# (system, kind, picker label)
+GEO_TASKS = [
+    (sysA, "chassis", "Chassis panels"),
+    (sysD, "bumper",  "Side bumper"),
+    (sysE, "bumper",  "Front bumper"),
+]
+
+for sysx, kind, label in GEO_TASKS:
+    try:
+        path = choose_geometry(label)
+        if path:
+            sysx.GetContainer(ComponentName="Geometry").SetFile(FilePath=path.replace("\\", "/"))
+            print("Geometry set for '%s': %s" % (sysx.DisplayText, path))
+        else:
+            print("No file chosen for '%s' - skipping its setup." % sysx.DisplayText)
+            continue
+        comp = sysx.GetComponent(Name="Model"); comp.Refresh()
+        model = sysx.GetContainer(ComponentName="Model")
+        open_model(model)
+        model.SendCommand(Language="Python", Command=CMD_BY_KIND[kind])
+        model.Exit()
+        print("Setup done (%s): %s" % (kind, sysx.DisplayText))
+    except Exception, ex:
+        print("ERROR on '%s': %s" % (label, ex))
+
 try:
-    db
-except NameError:
-    import compolyx
-    db = compolyx.DB()
-model = db.active_model
-md    = model.material_data
+    Save(Overwrite=True); print("Project saved.")
+except Exception, ex:
+    print("Not saved yet (File > Save once): %s" % ex)
 
-
-# ---------------- HELPERS ----------------
-def _avg(arr):
-    flat = list(arr)
-    if not flat:
-        return None
-    if hasattr(flat[0], "__len__"):
-        n = len(flat)
-        return (sum(p[0] for p in flat) / n,
-                sum(p[1] for p in flat) / n,
-                sum(p[2] for p in flat) / n)
-    xs, ys, zs = flat[0::3], flat[1::3], flat[2::3]
-    n = len(xs)
-    return (sum(xs) / n, sum(ys) / n, sum(zs) / n)
-
-
-def set_center(es):
-    try:
-        model.select_elements(selection="sel0", op="new", attached_to=[es])
-        coords = model.mesh_query(name="coordinates", position="centroid",
-                                  selection="sel0")
-        return _avg(coords)
-    except Exception:
-        return None
-
-
-def set_normal(es):
-    """Average, normalized element normal of a set -> unit (x,y,z), or None."""
-    try:
-        import math
-        model.select_elements(selection="sel1", op="new", attached_to=[es])
-        norms = model.mesh_query(name="normals", position="centroid",
-                                 selection="sel1")
-        avg = _avg(norms)
-        if avg is None:
-            return None
-        mag = math.sqrt(avg[0] ** 2 + avg[1] ** 2 + avg[2] ** 2)
-        if mag < 1e-9:
-            return None
-        return (avg[0] / mag, avg[1] / mag, avg[2] / mag)
-    except Exception:
-        return None
-
-
-def get_item(collection, name):
-    try:
-        return collection[name]
-    except Exception:
-        return None
-
-
-def _cross(a, b):
-    return (a[1] * b[2] - a[2] * b[1],
-            a[2] * b[0] - a[0] * b[2],
-            a[0] * b[1] - a[1] * b[0])
-
-
-def _unit(v):
-    import math
-    m = math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
-    return None if m < 1e-9 else (v[0] / m, v[1] / m, v[2] / m)
-
-
-def rosette_normal(ros):
-    """Normal (3rd axis) of a rosette, so the OSS orientation follows the
-    rosette the user set. Tries a direct normal attr, else crosses the two
-    in-plane direction vectors. Returns unit (x,y,z) or None."""
-    if ros is None:
-        return None
-    # (a) a direct normal / 3rd-direction attribute
-    for a in ["normal", "dir3", "dir_3", "direction_3", "z_direction", "n"]:
-        try:
-            u = _unit(tuple(getattr(ros, a)))
-            if u:
-                return u
-        except Exception:
-            pass
-    # (b) cross product of the two in-plane directions
-    for a1, a2 in [("dir1", "dir2"), ("dir_1", "dir_2"),
-                   ("direction_1", "direction_2"), ("x_direction", "y_direction")]:
-        try:
-            d1 = tuple(getattr(ros, a1))
-            d2 = tuple(getattr(ros, a2))
-            u = _unit(_cross(d1, d2))
-            if u:
-                return u
-        except Exception:
-            pass
-    return None
-
-
-def target_sets():
-    return [n for n in model.element_sets.keys() if n not in SKIP_SETS]
-
-
-# ---------------- look up the stackup made in script 1 ----------------
-full = get_item(md.stackups, STACKUP_NAME)
-if full is None:
-    raise KeyError("Stackup '%s' not found -- run script 1 first. Available: [%s]"
-                   % (STACKUP_NAME, ", ".join("'%s'" % s for s in md.stackups.keys())))
-
-
-# =====================================================================
-# 4. ORIENTED SELECTION SETS
-# =====================================================================
-# ---- one-time: show the first rosette's attributes (helps if source=mesh) ----
-_rk = list(model.rosettes.keys())
-for _n in _rk:
-    if _n not in SKIP_SETS and _n.lower() != "global coordinate system":
-        print("Rosette '%s' attrs: %s"
-              % (_n, ", ".join(a for a in dir(model.rosettes[_n]) if not a.startswith("_"))))
-        break
-
-for name in target_sets():
-    es  = model.element_sets[name]
-    ros = get_item(model.rosettes, name)
-    origin = set_center(es) or (0.0, 0.0, 0.0)
-
-    # OSS orientation should follow the rosette the user set; fall back to the
-    # face's mesh normal, then to the fixed default.
-    orient_dir = rosette_normal(ros)
-    src = "rosette"
-    if orient_dir is None:
-        orient_dir = set_normal(es)
-        src = "mesh"
-    if orient_dir is None:
-        orient_dir = DEFAULT_ORIENT_DIR
-        src = "default"
-
-    kwargs = dict(name=name, orientation_point=origin,
-                  orientation_direction=orient_dir, element_sets=[es])
-    if ros is not None:
-        kwargs["rosettes"] = [ros]
-    try:
-        model.create_oriented_selection_set(**kwargs)
-    except Exception:
-        oss = model.create_oriented_selection_set(name=name)
-        try: oss.orientation_point = origin
-        except Exception: pass
-        try: oss.orientation_direction = orient_dir
-        except Exception: pass
-        try: oss.add_element_set(es)
-        except Exception as ex: print("  add_element_set failed '%s': %s" % (name, ex))
-        if ros is not None:
-            try: oss.add_rosette(ros)
-            except Exception as ex: print("  add_rosette failed '%s': %s" % (name, ex))
-    tag = "" if ros is not None else "  (NO rosette)"
-    print("OSS '%s'  orient_dir=(%.2f, %.2f, %.2f) [%s]%s"
-          % (name, orient_dir[0], orient_dir[1], orient_dir[2], src, tag))
-
-# =====================================================================
-# 5. MODELING GROUPS + PLIES
-# =====================================================================
-for name in target_sets():
-    oss = get_item(model.oriented_selection_sets, name)
-    if oss is None:
-        print("  SKIP modeling group '%s' (no OSS found)" % name)
-        continue
-    mg = model.create_modeling_group(name=name)
-    mg.create_modeling_ply(name="%s Ply" % name,
-                           ply_material=full,
-                           ply_angle=PLY_ANGLE,
-                           oriented_selection_sets=(oss,))
-    print("Modeling group + ply: '%s'" % name)
-
-# =====================================================================
-# 6. SOLID MODELS
-# =====================================================================
-for name in target_sets():
-    es = model.element_sets[name]
-    ex = "monolithic" if name in MONOLITHIC_SETS else EX_TYPE
-    try:
-        model.create_solid_model(name=name, element_sets=[es], ex_type=ex)
-    except Exception:
-        sm = model.create_solid_model(name=name)
-        try: sm.ex_type = ex
-        except Exception as e1: print("  set ex_type failed '%s': %s" % (name, e1))
-        try: sm.add_element_set(es)
-        except Exception as e2: print("  add_element_set failed '%s': %s" % (name, e2))
-    print("Solid model '%s'  (ex_type = %s)" % (name, ex))
-
-model.update()
-print("Done -- SCRIPT 2 complete (OSS, plies, solid models).")
+print("ALL DONE.")
