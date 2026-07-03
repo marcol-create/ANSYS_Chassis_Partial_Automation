@@ -22,7 +22,8 @@ Python scripts that automates repetitive parts of setup for composite and bumper
 3. Run `acp_materials_rosettes.py`.
 4. Adjust the rosette directions.
 5. Run `acp_oss_plies_solids.py`.
-6. Update ACP and return to Workbench.
+6. Apply any draping specifications needed. 
+7. Update ACP and return to Workbench.
 
 ---
 
