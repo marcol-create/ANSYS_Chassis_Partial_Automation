@@ -27,7 +27,7 @@ Prior to Ansys work, pre-prep file in Fusion, surface offsetting faces by 0.00 m
 
 3. **Create the composite model (ACP)**
    - Run `acp_materials_rosettes.py` in **ACP → File → Run Script**.
-   - The script creates the Carbon Fiber and Honeycomb fabrics, the **Full Panel** stackup, and one rosette for every element set.
+   - The script creates the Carbon Fiber and Honeycomb fabrics, the **Full Panel** stackup, and one rosette for every element set. They will be centered, but will require manual orienting. 
 
 4. **Finalize the rosette orientations**
    - **Manual step:** Review each rosette and adjust its direction and flip to match the desired fiber/offset direction for each panel.
