@@ -212,6 +212,9 @@ The script automatically:
 
 <img width="520" height="736" alt="image" src="https://github.com/user-attachments/assets/4b692e55-4761-425c-a9fe-2e7063166209" />
 
+<img width="1128" height="723" alt="image" src="https://github.com/user-attachments/assets/fdecc10c-1c5f-4252-a346-9c8117733a1e" />
+
+
 
 
 Update the ACP model, then return to Workbench to continue with your analysis.
