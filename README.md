@@ -22,7 +22,7 @@ Python scripts that automates repetitive parts of setup for composite and bumper
    - The script creates the Workbench project, imports the geometry and material data, generates the required Named Selections, and (if using the bumper workflow) automatically meshes the bumper models and creates the Static Structural and Structural Optimization analyses.
 
 2. **Generate the chassis mesh**
-   - Open the ACP Mechanical model and create the chassis mesh using the element sizing and selective refinement appropriate for your analysis.
+   - Open the ACP Mechanical model and create the chassis mesh using the courseness for your analysis.
 
 3. **Create the composite model**
    - Run `acp_materials_rosettes.py`.
