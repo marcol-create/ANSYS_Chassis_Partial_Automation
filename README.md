@@ -1,6 +1,6 @@
 # ANSYS Chassis (Semi) Automation Scripts
 
-Python scripts that automates repetitive parts of setup for composite and bumper analyses for **Sunstruck** chassis in **ANSYS Workbench** and **ACP**.
+Python scripts that automate the repetitive parts of setting up composite and bumper analyses for the **Sunstruck** chassis in **ANSYS Workbench** and **ACP**.
 
 ---
 
@@ -8,46 +8,47 @@ Python scripts that automates repetitive parts of setup for composite and bumper
 
 | Script | Purpose |
 |---------|---------|
-| `workbench_setup(just_acp).py` | Creates an ACP-only Workbench project, imports the chassis geometry (prompts) and material data from your computer (automatically finds), and performs the Mechanical setup (thickness + named selections). |
-| `workbench_setup(bumpers_included).py` | Creates the complete Workbench project with ACP, Front Bumper, and Side Bumper systems, imports all geometry, meshes the bumper models, and creates the Static Structural and Structural Optimization analyses. |
-| `acp_materials_rosettes.py` | Creates the Carbon Fiber and Honeycomb fabrics, the **Full Panel** stackup, and one rosette for every element set, automatically centered (still requires manual orienting). |
+| `workbench_setup(just_acp).py` | Creates an ACP-only Workbench project. Prompts for the chassis geometry, finds and imports the material data from your computer, and does the Mechanical setup (thickness + named selections). |
+| `workbench_setup(bumpers_included).py` | Creates the full Workbench project with ACP, Front Bumper, and Side Bumper systems. Imports all geometry, meshes the bumper models, and creates the Static Structural and Structural Optimization analyses. |
+| `workbench_setup(with_rollcage).py` | Same as the bumpers project, plus a Rollcage Mechanical Model that imports the rollcage geometry and meshes it (MultiZone hex sweep, default steel — no composite material import). |
+| `acp_materials_rosettes.py` | Creates the Carbon Fiber and Honeycomb fabrics, the **Full Panel** stackup, and one rosette per element set, centered automatically (orienting is still manual). |
 | `acp_oss_plies_solids.py` | Creates the oriented selection sets (OSSs), modeling groups, plies, and solid models from the finalized rosettes. |
 
 ---
 
 ## Quick Workflow
-Prior to Ansys work, pre-prep file in Fusion, surface offsetting faces by 0.00 mm. Give the bumper parts their own files. Save as .step file. 
-Also, downnload the material data if you don't have it already (files are uploaded here too). 
+Before starting in Ansys, prep the file in Fusion: surface-offset the faces by 0.00 mm, give the bumper parts their own files, and save as `.step`.
+Also grab the material data if you don't have it yet (the files are in this repo too).
 
-1. **Run a Workbench setup script (New Workbench file)**
-   - Run either `workbench_setup(just_acp).py` or `workbench_setup(bumpers_included).py` through **Workbench → File → Scripting**.
-   - The script creates the Workbench project, takes the material data from your computer, lets you select the geometry file/s for testing, generates the required Named Selections, and (if using the bumper workflow) automatically meshes the bumper models and creates the Static Structural and Structural Optimization analyses.
+1. **Run a Workbench setup script (new Workbench file)**
+   - Run `workbench_setup(just_acp).py`, `workbench_setup(bumpers_included).py`, or `workbench_setup(with_rollcage).py` through **Workbench → File → Scripting**.
+   - The script creates the Workbench project, pulls in the material data from your computer, lets you pick the geometry file(s), generates the Named Selections, and — for the bumper and rollcage workflows — meshes the bumper/rollcage models and creates the Static Structural and Structural Optimization analyses.
 
 2. **Generate the chassis mesh (Mechanical)**
-   - Open the ACP Mechanical model and create the chassis mesh using the coarseness appropriate for your analysis.
+   - Open the ACP Mechanical model and mesh the chassis at whatever coarseness fits your analysis.
 
 3. **Create the composite model (ACP)**
    - Run `acp_materials_rosettes.py` in **ACP → File → Run Script**.
-   - The script creates the Carbon Fiber and Honeycomb fabrics, the **Full Panel** stackup, and one rosette for every element set. They will be centered, but will require manual orienting. 
+   - This creates the Carbon Fiber and Honeycomb fabrics, the **Full Panel** stackup, and one rosette per element set. The rosettes are centered but still need manual orienting.
 
 4. **Finalize the rosette orientations**
-   - **Manual step:** Review each rosette and adjust its direction and flip to match the desired fiber/offset direction for each panel.
+   - **Manual step:** go through each rosette and set its direction and flip to match the fiber/offset direction you want for that panel.
 
 5. **Generate the ACP model**
    - Run `acp_oss_plies_solids.py` in **ACP → File → Run Script**.
-   - The script creates the Oriented Selection Sets (OSSs), Modeling Groups, **Full Panel** plies, and Solid Models for every element set, automatically linking everything by name.
-   - Assign draping as necessary.
+   - This creates the Oriented Selection Sets (OSSs), Modeling Groups, **Full Panel** plies, and Solid Models for every element set, linking everything by name.
+   - Assign draping as needed.
 
 6. **Update ACP**
-   - Update the ACP model, then return to Workbench to continue with structural analyses.
+   - Update the ACP model, then head back to Workbench to continue with the structural analyses.
 
 ---
 
 # Summary of Manual Parts
 
 - Meshing (Mechanical)
-- Customizing rosette orientation (ACP)
-- Setting draping (ACP)
+- Rosette orientation (ACP)
+- Draping (ACP)
 
 # More detailed steps
 # 1. Workbench Setup
@@ -136,11 +137,49 @@ The script creates:
 
 ---
 
+## Option C — ACP + Bumpers + Rollcage
+
+Same as Option B, with an added Rollcage Mechanical Model.
+
+### Required Geometry
+
+- 📦 Chassis panels STEP file
+- 🚗 Front bumper STEP file
+- 🚗 Side bumper STEP file
+- 🧰 Rollcage STEP file (solid, hollow tubes)
+
+In **ANSYS Workbench**:
+
+```text
+File → Scripting → Run Script File
+```
+
+Run:
+
+```text
+workbench_setup(with_rollcage).py
+```
+
+Select the chassis, front bumper, side bumper, and rollcage STEP files when prompted (in that order).
+
+Everything from Option B, plus:
+
+### Rollcage
+
+- ✅ Rollcage Mechanical Model system
+- ✅ Imports the rollcage geometry
+- ✅ Keeps the default **Structural Steel** material (no composite material import for this block)
+- ✅ Meshes with a **MultiZone hex sweep**, sized for the tube wall
+
+> **Rollcage mesh note:** The tubes are hollow, so a plain coarse mesh doesn't resolve the wall. The script uses a MultiZone (hex sweep) mesh instead. Set `ROLLCAGE_SIZE` (top of the rollcage command in the script) to about **wall thickness ÷ 3** to get 2–3 elements across the wall. MultiZone sweeps the straight tube sections into hex and falls back to tets at the junctions. If you'd rather have a much lighter model, the tubes can instead be built as beams (line bodies with tube cross-sections) in SpaceClaim.
+
+---
+
 # 2. Mesh the Chassis
 
 Open the **ACP Mechanical** model and generate the chassis mesh.
 
-Choose the element sizing and any local mesh refinement appropriate for your analysis.
+Pick the element sizing and any local refinement that fits your analysis.
 
 <img width="2560" height="1540" alt="image" src="https://github.com/user-attachments/assets/cd505e9f-45f0-4a9a-a5b1-fe7f8f1bc9b8" />
 
@@ -182,15 +221,15 @@ Carbon Fiber (90°)
 
 # 4. Finalize the Rosettes (Manual)
 
-Before continuing, manually orient each rosette.
+Before continuing, orient each rosette by hand.
 
-For every rosette, verify:
+For every rosette, check:
 
 - Direction
 - Flip
 - Offset direction
 
-Each surface may require a different orientation.
+Each surface may need a different orientation.
 
 ---
 
@@ -226,7 +265,7 @@ The script creates:
 
 ### Final ACP Model
 
-<img width="1128" height="723" alt="image" src="https://github.com/user-attachments/assets/fdecc10c-1c5f-4252-a346-9c8117733a1e" />
+<img width="1128" height="723" alt="image" src="https://github.com/user-attachments/assets/fdecc10c-1c5f-4252-a445-9c8117733a1e" />
 
 Update the ACP model, then return to Workbench to continue with your analysis.
 
@@ -235,6 +274,7 @@ Update the ACP model, then return to Workbench to continue with your analysis.
 # Notes
 
 - Run each ACP script **once** on a clean ACP model.
-- Generate the **chassis mesh manually** before running the ACP scripts.
+- Mesh the **chassis manually** before running the ACP scripts.
 - The **bumper meshes** are generated automatically by `workbench_setup(bumpers_included).py`.
+- The **rollcage mesh** is generated automatically by `workbench_setup(with_rollcage).py` (MultiZone hex sweep); set `ROLLCAGE_SIZE` to roughly the tube wall thickness ÷ 3.
 - All ACP objects (element sets, rosettes, OSSs, modeling groups, plies, and solid models) are linked by matching names, so avoid renaming element sets after setup.
