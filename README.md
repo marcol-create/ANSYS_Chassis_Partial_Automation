@@ -185,7 +185,8 @@ Everything from Option B, plus:
 - Uses the default **Structural Steel** material
 - Generates a MultiZone hex sweep mesh
 
-> **Rollcage mesh note:** Set `ROLLCAGE_SIZE` (near the top of the script) to approximately **wall thickness ÷ 3**. This gives 2–3 elements through the tube wall while keeping the mesh efficient. Straight tube sections are swept into hex elements, with tetrahedra only used around joints. If a lighter model is preferred, the rollcage can instead be modeled using beam elements in SpaceClaim.
+![Uploading image.png…]()
+
 
 ---
 
