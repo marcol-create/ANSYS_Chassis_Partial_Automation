@@ -1,39 +1,28 @@
 # =====================================================================
 #  ACP (Pre) -- localized extrusion guides for flush seat gaps
 # =====================================================================
-#  Run INSIDE ACP (File > Run Script) AFTER acp_oss_plies_solids.py --
-#  i.e. after the rosettes, OSSs, modeling groups and solid models exist
-#  and have been updated once.
+#  Run INSIDE ACP (File > Run Script) AFTER acp_oss_plies_solids.py.
 #
 #  Each seat gap has a support passing through it. The gap walls extrude
 #  along the tilted seat normal, so they meet the horizontal support along
-#  one line, leaving a wedge void. This adds ONE extrusion guide per gap
-#  that re-points only that gap's edges toward its support (horizontal), so
-#  the walls lie flush.
+#  one line (wedge void). This adds one extrusion guide per gap that
+#  re-points that gap's edges toward its support (flattened horizontal),
+#  so the walls lie flush. Pointing each gap at its own support auto-mirrors
+#  L/R and avoids the sliver artifacts a single shared direction produces.
 #
-#  DIRECTION (fixes the left/right sliver asymmetry):
-#    A single world-space vector cannot be symmetric for mirror-symmetric
-#    gaps -- it sweeps one side correctly and the mirror side the wrong way,
-#    producing degenerate sliver/patch elements. So each gap gets its OWN
-#    direction, pointing from the seat toward the support that passes through
-#    that gap (support_centroid - seat_centroid, flattened horizontal). That
-#    auto-mirrors, so left and right behave identically.
+#  This version:
+#    - REPLACE_EXISTING: deletes+recreates guides so re-runs are clean.
+#    - Always ends by RAISING a summary, so the result is visible even when
+#      ACP's print console is not (a silent "t=0.00s" finish means nothing
+#      was created -- the summary now tells you exactly why).
 # =====================================================================
 
 # ---------------- CONFIG ----------------
-SEAT_SET       = "Seat"          # seat solid model / element set / rosette name
+SEAT_SET       = "Seat"
 SEAT_ROSETTE   = "Seat"
 EDGE_SETS      = ["EdgeSet1", "EdgeSet2", "EdgeSet3", "EdgeSet4"]
 
-# How each gap's guide direction is chosen:
-#   "support"     -> point toward the support passing through the gap  (RECOMMENDED,
-#                    auto-mirrors L/R). Requires GAP_SUPPORT below.
-#   "seat_normal" -> single flattened seat normal for all gaps  (the old behaviour;
-#                    causes the L/R asymmetry on mirror-symmetric gaps).
-#   "fixed"       -> use FIXED_HORIZONTAL for all gaps.
-DIRECTION_MODE = "support"
-
-# EDIT so each edge set maps to the support that goes through that gap:
+DIRECTION_MODE = "support"        # "support" | "seat_normal" | "fixed"
 GAP_SUPPORT = {
     "EdgeSet1": "LTopVertSupp",
     "EdgeSet2": "LBottomVertSupp",
@@ -41,15 +30,15 @@ GAP_SUPPORT = {
     "EdgeSet4": "RBottomVertSupp",
 }
 
-UP_AXIS        = (0.0, 0.0, 1.0)  # vertical axis; use (0,1,0) if Y is up
-GUIDE_FLIP     = False            # global flip if EVERY gap points the wrong way
-FIXED_HORIZONTAL = None           # (x,y,z), or a per-gap dict, for DIRECTION_MODE="fixed"
+UP_AXIS        = (0.0, 0.0, 1.0)
+GUIDE_FLIP     = False
+FIXED_HORIZONTAL = None
 
-GUIDE_RADIUS   = 5.0              # tight sphere of influence -> keeps the tilt local
+GUIDE_RADIUS   = 5.0
 GUIDE_DEPTH    = 1.0
 
-DO_UPDATE      = True
-SKIP_IF_EXISTS = True
+DO_UPDATE        = True
+REPLACE_EXISTING = True            # delete + recreate guides that already exist
 
 # ---------------- MODEL ----------------
 try:
@@ -124,7 +113,6 @@ def flatten_to_horizontal(v, up):
     return _unit((v[0] - d * up[0], v[1] - d * up[1], v[2] - d * up[2]))
 
 def set_centroid(esname):
-    """Average element centroid of an element set -> (x,y,z), or None."""
     es = get_item(model.element_sets, esname)
     if es is None:
         return None
@@ -135,34 +123,53 @@ def set_centroid(esname):
     except Exception:
         return None
 
-# seat centroid, computed once
 SEAT_CENTROID = set_centroid(SEAT_SET)
 
 def horizontal_for(esname):
-    """Resolve this gap's horizontal guide direction -> (vec, source)."""
     if isinstance(FIXED_HORIZONTAL, dict) and esname in FIXED_HORIZONTAL:
         return _unit(tuple(FIXED_HORIZONTAL[esname])), "fixed(per-gap)"
-
     if DIRECTION_MODE == "support":
         sup = GAP_SUPPORT.get(esname)
         if not sup:
-            return None, "no support mapped"
+            return None, "no support mapped for %s" % esname
+        if get_item(model.element_sets, sup) is None:
+            return None, "support '%s' is not an element set (only a solid model?)" % sup
         sc = set_centroid(sup)
         if sc is None or SEAT_CENTROID is None:
-            return None, "missing centroid (support='%s')" % sup
-        toward = (sc[0] - SEAT_CENTROID[0],
-                  sc[1] - SEAT_CENTROID[1],
-                  sc[2] - SEAT_CENTROID[2])
+            return None, "missing centroid (support='%s', seat='%s')" % (sup, SEAT_SET)
+        toward = (sc[0] - SEAT_CENTROID[0], sc[1] - SEAT_CENTROID[1], sc[2] - SEAT_CENTROID[2])
         return flatten_to_horizontal(toward, UP_AXIS), "toward %s" % sup
-
     if DIRECTION_MODE == "fixed":
         if FIXED_HORIZONTAL is None:
             return None, "fixed mode but FIXED_HORIZONTAL not set"
         return _unit(tuple(FIXED_HORIZONTAL)), "fixed"
-
-    # seat_normal (old behaviour)
     n_seat = rosette_normal(get_item(model.rosettes, SEAT_ROSETTE))
     return flatten_to_horizontal(n_seat, UP_AXIS), "flattened seat normal"
+
+def guide_exists(gname):
+    try:
+        return seat_sm.extrusion_guides[gname] is not None
+    except Exception:
+        return False
+
+def delete_guide(gname):
+    try:
+        g = seat_sm.extrusion_guides[gname]
+    except Exception:
+        return False
+    for attempt in (lambda: g.delete(),
+                    lambda: seat_sm.remove_extrusion_guide(g),
+                    lambda: seat_sm.remove_extrusion_guide(gname)):
+        try:
+            attempt()
+            return True
+        except Exception:
+            pass
+    try:
+        del seat_sm.extrusion_guides[gname]
+        return True
+    except Exception:
+        return False
 
 # ---------------- locate the seat solid model ----------------
 seat_sm = get_item(model.solid_models, SEAT_SET)
@@ -171,58 +178,53 @@ if seat_sm is None:
                        % (SEAT_SET, ", ".join(model.solid_models.keys())))
 
 # ---------------- one guide per gap ----------------
-made, skipped = 0, 0
+made = 0
+notes = []
 for esname in EDGE_SETS:
     es = get_item(model.edge_sets, esname)
     if es is None:
-        print("  SKIP '%s' -- edge set not found. Available: [%s]"
-              % (esname, ", ".join(model.edge_sets.keys())))
+        notes.append("%s: edge set NOT FOUND" % esname)
         continue
 
     horiz, src = horizontal_for(esname)
     if horiz is None:
-        print("  SKIP '%s' -- could not resolve direction (%s)." % (esname, src))
+        notes.append("%s: no direction (%s)" % (esname, src))
         continue
     if GUIDE_FLIP:
         horiz = (-horiz[0], -horiz[1], -horiz[2])
 
     gname = "%s_flush" % esname
-    if SKIP_IF_EXISTS:
-        try:
-            if seat_sm.extrusion_guides[gname] is not None:
-                print("  '%s' already exists -- skipping (delete it to recreate)" % gname)
-                skipped += 1
+    if guide_exists(gname):
+        if REPLACE_EXISTING:
+            ok = delete_guide(gname)
+            if not ok:
+                notes.append("%s: exists and could NOT delete (delete it in the tree)" % gname)
                 continue
-        except Exception:
-            pass
+        else:
+            notes.append("%s: already exists (REPLACE_EXISTING is off)" % gname)
+            continue
 
     try:
-        seat_sm.create_extrusion_guide(
-            name=gname,
-            edge_set=es,
-            direction=horiz,
-            radius=GUIDE_RADIUS,
-            depth=GUIDE_DEPTH)
+        seat_sm.create_extrusion_guide(name=gname, edge_set=es,
+                                       direction=horiz,
+                                       radius=GUIDE_RADIUS, depth=GUIDE_DEPTH)
         made += 1
-        print("  guide '%s'  dir=(%.4f, %.4f, %.4f) [%s]"
-              % (gname, horiz[0], horiz[1], horiz[2], src))
+        notes.append("%s: OK dir=(%.3f,%.3f,%.3f) [%s]" % (gname, horiz[0], horiz[1], horiz[2], src))
     except Exception as ex:
-        raise RuntimeError("create_extrusion_guide failed for '%s': %s" % (esname, ex))
+        notes.append("%s: create FAILED: %s" % (esname, ex))
 
-print("Guides created: %d   skipped: %d   of %d." % (made, skipped, len(EDGE_SETS)))
-
-# ---------------- update + shape check ----------------
+# ---------------- update ----------------
+updated = False
 if DO_UPDATE and made:
     try:
         model.update()
-        print("Update complete. Section-cut each gap:")
-        print("  - wedge closed, no slivers  -> done.")
-        print("  - a gap's wedge got WIDER   -> that support mapping/side is reversed;")
-        print("                                 check GAP_SUPPORT for that edge set.")
-        print("  - slivers persist on a gap  -> lower GUIDE_RADIUS, or split that gap's")
-        print("                                 third edge (the one along the direction)")
-        print("                                 onto its own edge set + guide.")
+        updated = True
     except Exception as ex:
-        print("Update raised: %s" % ex)
-else:
-    print("Skipped update (no new guides, or DO_UPDATE off).")
+        notes.append("model.update() raised: %s" % ex)
+
+# ---------------- ALWAYS-VISIBLE SUMMARY (raised so it shows in a dialog) ----------------
+head = ("DONE (not an error): created %d guide(s), updated=%s. Section-cut to verify."
+        % (made, updated)) if made else \
+       ("NOTHING CREATED (made=0). Reasons below. "
+        "edge_sets present: [%s]" % ", ".join(model.edge_sets.keys()))
+raise RuntimeError(head + "  ||  " + "  ||  ".join(notes))
